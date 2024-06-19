@@ -1,2 +1,10 @@
-* .env
+**/.env/*
 !.gitignore
+config.py
+pipelines.py
+requirements.txt
+.vscode
+__pycache__
+env
+outputs
+
