@@ -7,4 +7,14 @@ requirements.txt
 __pycache__
 env
 outputs
-
+1.png
+2.png
+3.png
+4.png
+img_aug1.png
+img_aug2.png
+img_aug3.png
+img_aug4.png
+aug.ipynb
+image.jpg
+.gitignore
