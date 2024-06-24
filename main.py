@@ -1,20 +1,50 @@
 from transformers import CLIPConfig, CLIPTextConfig, CLIPVisionConfig, CLIPModel, CLIPImageProcessor, CLIPTokenizer, CLIPTokenizerFast, CLIPProcessor
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+from torchvision.transforms import v2
+from pre_trained import PRE_TRAINED, VALUES, FILES
 from itertools import product
 from pathlib import Path
 from PIL import Image
-from clip import PRE_TRAINED
-import transformers
 import argparse, os
+import transformers
 import json
 
-def update_defaults():
-    CLIPModel.config_class().to_json_file("./defaults/cfg.json")
+def set_args(parser:argparse.ArgumentParser):        
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--pretrained", '-pre', choices=[0, 1, 2, 3], help="Choose pre-trained model:" +
+            "\n\t0 - {0}\n\t1 - {1}\n\t2 - {2}\n\t3 - {3}".format(*PRE_TRAINED, type=int))    
+    group.add_argument("--default", action="store_const", const=1, 
+            help="uses 'openai/clip-vit-base-patch32' as default for all classes")    
+    
+    parser.add_argument("--fast", action="store_true", help="enables fast tokenizer CLIPTokenizerFast variant")
 
-    CLIPTextConfig.from_pretrained("openai/clip-vit-base-patch32").to_json_file("./defaults/text_config.json")
-    CLIPVisionConfig.from_pretrained("openai/clip-vit-base-patch32").to_json_file("./defaults/vision_config.json")
+    parser.add_argument("--txt_cfg", help="specify a config json file to override default configs in CLIPTextConfig")                
+    parser.add_argument("--vision_config", "-vis_cfg", help="specify a config json file to override default configs in CLIPVisionConfig")            
+    parser.add_argument("--token_cfg", help="specify a config json file to override default configs in CLIPTokenizer")    
+    parser.add_argument("--img_processor", "-img_proc",  help="specify a config json file to override default configs in CLIPImageProcessor")
+    parser.add_argument("--model_cfg", help="specify a config json file to override default configs in CLIPConfig")
+    #parser.print_help()
 
-    img_proc = CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32")#.to_json_file("./defaults/img_processor.json")
+
+def update_pretrained_configs(pretrained:int):
+    folder = PRE_TRAINED[pretrained]    
+    os.makedirs(f"./defaults/{folder}/", exist_ok=True)
+
+    pre_trained = VALUES[pretrained]
+    model = FILES['model']
+    txt_cfg = FILES['txt']
+    vision_cfg = FILES['vision']
+    tokenizer = FILES["tokenizer"]
+    tokenizer_fast = FILES["tokenizer_fast"]
+    vocabulary = FILES["vocabulary"]
+    vocabulary_fast = FILES["vocabulary_fast"]
+    img_processor_cfg = FILES["img_processor"]
+        
+    json.dump(CLIPModel.config_class().to_json_string(), open(f"./defaults/{folder}/{model}", 'w'))    
+    json.dump(CLIPTextConfig.from_pretrained(pre_trained).to_json_string(), open(f"./defaults/{folder}/{txt_cfg}", 'w'))
+    json.dump(CLIPVisionConfig.from_pretrained(pre_trained).to_json_string(), open(f"./defaults/{folder}/{vision_cfg}", 'w'))
+
+    img_proc = CLIPImageProcessor.from_pretrained(pre_trained)    
     img_proc_cfg = {
         "do_resize" : img_proc.do_resize,
         "size" : img_proc.size,
@@ -28,48 +58,20 @@ def update_defaults():
         "image_std" : img_proc.image_std,
         "do_convert_rgb" : img_proc.do_convert_rgb
     }
-    json.dump(img_proc_cfg, open("./defaults/img_processor.json"))
+    json.dump(img_proc_cfg, open(f"./defaults/{folder}/{img_processor_cfg}.json", 'w'))
 
-    tokenizer:CLIPTokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-base-patch32")
-    vocab = vocab.get_vocab()
-    json.dump(vocab, open("./defaults/tokenizer_vocab.json", "w"))    
-    tokenizer = {"vocab_file" : tokenizer.get_vocab()}
-    json.dump(tokenizer, open("./defaults/tokenizer.json", 'w'))
+    tok:CLIPTokenizer = CLIPTokenizer.from_pretrained(pre_trained)
+    vocab = tok.get_vocab()
+    json.dump(vocab, open(f"./defaults/{folder}/{vocabulary}", "w"))    
+    tok = {"vocab_file" : f"./defaults/{folder}/{vocabulary}"}
+    json.dump(tok, open(f"./defaults/{folder}/{tokenizer}", 'w'))
 
-    tokenizer_fast = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
-    json.dump(tokenizer_fast.get_vocab(), open("./defaults/tokenizerfast_vocab.json", "w"))
-    tokfast_json = {"vocab_file" : tokenizer_fast.get_vocab()}
-    json.dump(tokfast_json, open("./defaults/tokenizerfast.json", 'w'))
-
-        
-
-def set_args(parser:argparse.ArgumentParser):
-    parser.add_argument("--pretrained", '-pre', help="choose between the following pre-trained values \n", type=int)
-    parser.add_argument("--fast", action="store_true", help="enables fast tokenizer CLIPTokenizerFast variant")
-    parser.add_argument("--defaults", action="store_true", help="uses 'openai/clip-vit-base-patch32' as default for all classes")
-    
-    parser.add_argument("--txt_cfg", help="specify a config json file to override default configs in CLIPTextConfig")        
-    parser.add_argument("--txt_pretrained", "-txt_pre", help="specify a string from model hub to load CLIPTextConfig")
-    
-    parser.add_argument("--vision_config", "-vision_cfg", help="specify a config json file to override default configs in CLIPVisionConfig")
-    parser.add_argument("--vision_pretrained", "-vision_pre", help="specify a string from model hub to load CLIPVisionConfig")
-        
-    parser.add_argument("--token_cfg", "-tk_cfg", help="specify a config json file to override default configs in CLIPTokenizer")
-    parser.add_argument("--token_pretrained", "-tk_pre", help="specify a string from model hub to load CLIPTokenizer")
-    
-    parser.add_argument("--img_processor", "-img_proc")
-    parser.add_argument("--img_pretrained", "-img_pre", help="specify a string from model hub to load CLIPImageProcessor")
-
-
-def get_defaults(fast=False):
-    cfg = json.load("./defaults/cfg.json")
-    cfg_text = json.load("./defaults/text_config.json")
-    cfg_vision = json.load("./defaults/vision_config.json")    
-    cfg_token = json.load("./defaults/tokenizer_fast.json") if fast else json.load("./defaults/tokenizer.json")
-    
-        
-def process_args(args:dict):
-    get_defaults(args.fast)
+    tok_fast = CLIPTokenizerFast.from_pretrained(pre_trained)
+    json.dump(tok_fast.get_vocab(), open(f"./defaults/{folder}/{vocabulary_fast}", "w"))
+    tokfast_json = {"vocab_file" : f"./defaults/{folder}/{vocabulary_fast}"}
+    json.dump(tokfast_json, open(f"./defaults/{folder}/{tokenizer_fast}", 'w'))
+                
+def process_args(args:dict):    
 
     text_config = {}
     vision_config = {}
@@ -88,12 +90,23 @@ def process_args(args:dict):
 
     return (text_config, vision_config, token_vocab, img_processor)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    set_args(parser)
-    update_defaults()
+def get_defaults(pretrained, fast=False):
+    folder = PRE_TRAINED[pretrained] 
 
+    cfg = json.load(f"./defaults/{folder}/{FILES['model']}")
+    cfg_text = json.load(f"./defaults/{folder}/{FILES['txt']}")
+    cfg_vision = json.load(f"./defaults/{folder}/{FILES['vision']}")    
+    cfg_token = json.load(f"./defaults/{folder}/{FILES["tokenizer_fast"]}") if fast else json.load(f"./defaults/{folder}/{FILES["tokenizer"]}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(add_help=True)    
+    set_args(parser)
     args = parser.parse_args()
+    update_pretrained_configs(args.default if args.default else args.pre_trained)
+    exit()    
+        
+
     configs = process_args(args)
     
     #text_config, vision_config, token_vocab, img_processor
