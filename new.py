@@ -2,6 +2,9 @@ from transformers import CLIPConfig, CLIPTextConfig, CLIPVisionConfig, CLIPModel
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from pre_trained import PRE_TRAINED, VALUES, FILES
 from torchvision.transforms import v2
+from torch.nn import CrossEntropyLoss
+from trainer import CLIPTrainer
+from torch.optim import AdamW
 from itertools import product
 from pathlib import Path
 from PIL import Image
@@ -23,17 +26,19 @@ def set_args():
 
 def check_configs(path):
     if not path:
-        return (False, False, False, False, False)        
+        return (False, False, False, False)        
 
     model_exists = f"{path}/model.json" if os.path.exists(f"{path}/model.json") else False
-    processor_exists = f"{path}/processor.json" if os.path.exists(f"{path}/processor.json") else False    
-    tokenizer_exists = f"{path}/tokenizer.json" if os.path.exists(f"{path}/tokenizer.json") else False
-
     model_cfg = open(model_exists).read() if model_exists else False
+
+    processor_exists = f"{path}/processor.json" if os.path.exists(f"{path}/processor.json") else False    
     processor_cfg = open(processor_exists).read() if processor_exists else False
+
+    tokenizer_exists = f"{path}/tokenizer.json" if os.path.exists(f"{path}/tokenizer.json") else False
     tokenizer_cfg = open(tokenizer_exists).read() if tokenizer_exists else False
 
-    return (model_cfg, processor_cfg, tokenizer_cfg)
+    cfg = f"{path}/cfg.json" if os.path.exists(f"{path}/cfg.json") else False
+    return (model_cfg, processor_cfg, tokenizer_cfg, cfg)
 
 
 def load_configs(path):            
@@ -64,30 +69,38 @@ def load_model(pretrained, model_json, img_json, tokenizer_json):
 
     return (model, processor, tokenizer)
 
-def set_logs_folder(date:datetime.datetime, configs:list=[False, False, False]):
-    logs_folder = f".{os.sep}{date.year}-{date.month}-{date.day}:{date.hour}:{date.minute}:{date.second}"
+def set_logs_folder(date:datetime.datetime, configs:list=[False, False, False, False]):
+    logs_folder = f".{os.sep}outputs{os.sep}{date.year}-{date.month}-{date.day}:{date.hour}:{date.minute}:{date.second}"
+
     if not os.path.exists(logs_folder): os.makedirs(logs_folder)
+
     if configs[0]:
         with open(f"{logs_folder}{os.sep}model.json") as model:
-            model.write(configs[0])
-            model.close()
+            model.write(configs[0])            
     if configs[1]:
         with open(f"{logs_folder}{os.sep}processor.json") as processor:
-            processor.write(configs[1])
-            processor.close()
+            processor.write(configs[1])            
     if configs[2]:
         with open(f"{logs_folder}{os.sep}tokenizer.json") as tokenizer:
             tokenizer.write(configs[2])
-            tokenizer.close()
+    if configs[3]:
+        with open(f"{logs_folder}{os.sep}cfg.json") as cfg:
+            cfg.write(configs[3])
+
     return logs_folder
 
 if __name__ == "__main__":
     args = set_args()    
-    model_cfg, processor_cfg, tokenizer_cfg = load_configs(f"./config/{args.config}")
-    
-    combinations = product(model_cfg, processor_cfg, tokenizer_cfg)
-    for cfg, img, tokenizer in combinations:
+    architecture_cfg, img_processor_cfg, tokenizer_cfg, config = load_configs(f"./config/{args.config}")    
+    combinations = product(architecture_cfg, img_processor_cfg, tokenizer_cfg, config)
+    for model_cfg, processor_cfg, tok_cfg, cfg in combinations:
         date = datetime.datetime.now()
-        set_logs_folder(date)
-        model, processor, tokenizer = load_model(args.pretrained, cfg, img, tokenizer)
-             
+        logs_folder = set_logs_folder(date, [model_cfg, processor_cfg, tok_cfg, cfg])
+        model, processor, tokenizer = load_model(args.pretrained, model_cfg, processor_cfg, tok_cfg)
+        model = model.to("cuda")
+        processor = processor.to("cuda")
+        tokenizer = tokenizer.to("cuda")
+
+        optim = AdamW(model.parameters(), 1e-5)
+        trainer = CLIPTrainer(optim, CrossEntropyLoss(), None, logs_folder, total_epochs=10)
+
