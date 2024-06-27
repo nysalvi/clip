@@ -5,25 +5,17 @@ from torchvision.transforms import v2
 from itertools import product
 from pathlib import Path
 from PIL import Image
-import argparse, os
 import transformers
+import argparse, os
+import datetime
 import json
-
-
-#parser.add_argument("--txt_cfg", help="specify a config file to override default configs in CLIPTextConfig")                
-#parser.add_argument("--vision_config", "-vis_cfg", help="specify a config json file to override default configs in CLIPVisionConfig")            
-#parser.add_argument("--token_cfg", help="specify a config json file to override default configs in CLIPTokenizer")    
-#parser.add_argument("--img_processor", "-img_proc",  help="specify a config json file to override default configs in CLIPImageProcessor")
-#parser.add_argument("--model_cfg", help="specify a config json file to override default configs in CLIPConfig")    
-    
 
 def set_args():        
     parser = argparse.ArgumentParser(add_help=True)    
     parser.add_argument("--pretrained", '-pre', choices=[0, 1, 2, 3], help="Choose pre-trained model:" +
         "\n\t0 - {0}\n\t1 - {1}\n\t2 - {2}\n\t3 - {3}\nDefault: openai/clip-vit-base-patch32".format(*PRE_TRAINED, type=int), default=1)    
         
-    parser.add_argument("--config", "-cfg", help="set configs file to be loaded", default=False)
-
+    parser.add_argument("--config", "-cfg", help="set configs file to be loaded", default=False)    
     args = parser.parse_args()
     args.pretrained = VALUES[args.pretrained]    
     return args
@@ -72,12 +64,30 @@ def load_model(pretrained, model_json, img_json, tokenizer_json):
 
     return (model, processor, tokenizer)
 
+def set_logs_folder(date:datetime.datetime, configs:list=[False, False, False]):
+    logs_folder = f".{os.sep}{date.year}-{date.month}-{date.day}:{date.hour}:{date.minute}:{date.second}"
+    if not os.path.exists(logs_folder): os.makedirs(logs_folder)
+    if configs[0]:
+        with open(f"{logs_folder}{os.sep}model.json") as model:
+            model.write(configs[0])
+            model.close()
+    if configs[1]:
+        with open(f"{logs_folder}{os.sep}processor.json") as processor:
+            processor.write(configs[1])
+            processor.close()
+    if configs[2]:
+        with open(f"{logs_folder}{os.sep}tokenizer.json") as tokenizer:
+            tokenizer.write(configs[2])
+            tokenizer.close()
+    return logs_folder
 
 if __name__ == "__main__":
     args = set_args()    
     model_cfg, processor_cfg, tokenizer_cfg = load_configs(f"./config/{args.config}")
-        
+    
     combinations = product(model_cfg, processor_cfg, tokenizer_cfg)
     for cfg, img, tokenizer in combinations:
+        date = datetime.datetime.now()
+        set_logs_folder(date)
         model, processor, tokenizer = load_model(args.pretrained, cfg, img, tokenizer)
              

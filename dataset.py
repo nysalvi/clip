@@ -6,29 +6,31 @@ from ast import Tuple
 import pandas as pd
 import os 
 
+
 class TextImagePairSet(Dataset):
-    def __init__(self, annotations_dir:str, img_dir:str, transforms=None, target_transforms=None):
+    def __init__(self, annotations_file:str, img_dir:str, transform=None, target_transform=None):
         """
         Args
         -------------------------------------------------------------------------------------
-        annotations_folder : string to a directory containing 'train_labels.csv', 'dev_labels.csv' and 'test_labels.csv' with name and label as columns 
-        img_dir : string to a directory with train, dev and test folders.
+        annotations_folder : string to a directory containing csv with file ´name´ and ´y´ as columns
+        img_dir : string to a directory with images folder.
         transforms : transforms to images 
         target_transforms : transforms to labels 
         """        
-        self.train_labels = pd.read_csv(os.path.join(annotations_dir, "train_labels.csv"))
-        self.dev_labels = pd.read_csv(os.path.join(annotations_dir, "dev_labels.csv"))
-        self.test_labels = pd.read_csv(os.path.join(annotations_dir, "test_labels.csv"))
-
+        self.img_labels = pd.read_csv(annotations_file)
         self.img_dir = img_dir
-        self.transforms = transforms
-        self.target_transforms = target_transforms
+        self.transform = transform
+        self.target_transform = target_transform
 
     def __len__(self):
-        return len(self.img_labels)
+        return len(self.img_dir)
 
     def __getitem__(self, idx):
-        img_path = os.path.join()
-        image = 
-        label = 
-        #os.path.join()
+        img_path = os.path.join(self.img_dir, self.img_dir[idx, 0])
+        image = read_image(img_path)
+        label = os.path.join(self.img_dir, self.img_dir[idx, 1])
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+        return image, label
