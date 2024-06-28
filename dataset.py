@@ -9,19 +9,13 @@ import os
 
 
 class TextImagePairSet(Dataset):
-    def __init__(self, annotations_file:str, img_dir:str, transform=None, target_transform=None):
-        """
-        Args
-        -------------------------------------------------------------------------------------
-        annotations_file : annotations csv with ´name´, ´y´ and ´mask´ as columns
-        img_dir : string to a directory with images folder.
-        transforms : transforms to images 
-        target_transforms : transforms to labels 
-        """        
+    def __init__(self, annotations_file:str, img_dir:str, transform=None, target_transform=None, device="cpu"):
+
         self.annotations_csv = pd.read_csv(annotations_file, sep=';')
         self.img_dir = img_dir
         self.transform = transform
         self.target_transform = target_transform
+        self.device = device
 
     def __len__(self):
         return len(self.annotations_csv)
@@ -35,5 +29,6 @@ class TextImagePairSet(Dataset):
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
-            label = self.target_transform(label)                
-        return image, y, label
+            label = self.target_transform(label)   
+                    
+        return image.to(self.device), y.to(self.device), label

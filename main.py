@@ -1,124 +1,59 @@
 from transformers import CLIPConfig, CLIPTextConfig, CLIPVisionConfig, CLIPModel, CLIPImageProcessor, CLIPTokenizer, CLIPTokenizerFast, CLIPProcessor
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-from torchvision.transforms import v2
 from pre_trained import PRE_TRAINED, VALUES, FILES
+from generator.clip_generator import CLIPGenerator
+from torchvision.transforms import v2
+from torch.nn import CrossEntropyLoss
+from trainer import Trainer
+from torch.optim import AdamW
 from itertools import product
 from pathlib import Path
 from PIL import Image
-import argparse, os
+from tqdm import tqdm
 import transformers
+import argparse, os
+import datetime
 import json
 
-def set_args(parser:argparse.ArgumentParser):        
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--pretrained", '-pre', choices=[0, 1, 2, 3], help="Choose pre-trained model:" +
-            "\n\t0 - {0}\n\t1 - {1}\n\t2 - {2}\n\t3 - {3}".format(*PRE_TRAINED, type=int))    
-    group.add_argument("--default", action="store_const", const=1, 
-            help="uses 'openai/clip-vit-base-patch32' as default for all classes")    
-    
-    parser.add_argument("--fast", action="store_true", help="enables fast tokenizer CLIPTokenizerFast variant")
-
-    parser.add_argument("--txt_cfg", help="specify a config json file to override default configs in CLIPTextConfig")                
-    parser.add_argument("--vision_config", "-vis_cfg", help="specify a config json file to override default configs in CLIPVisionConfig")            
-    parser.add_argument("--token_cfg", help="specify a config json file to override default configs in CLIPTokenizer")    
-    parser.add_argument("--img_processor", "-img_proc",  help="specify a config json file to override default configs in CLIPImageProcessor")
-    parser.add_argument("--model_cfg", help="specify a config json file to override default configs in CLIPConfig")
-    #parser.print_help()
-
-
-def update_pretrained_configs(pretrained:int):
-    folder = PRE_TRAINED[pretrained]    
-    os.makedirs(f"./defaults/{folder}/", exist_ok=True)
-
-    pre_trained = VALUES[pretrained]
-    model = FILES['model']
-    txt_cfg = FILES['txt']
-    vision_cfg = FILES['vision']
-    tokenizer = FILES["tokenizer"]
-    tokenizer_fast = FILES["tokenizer_fast"]
-    vocabulary = FILES["vocabulary"]
-    vocabulary_fast = FILES["vocabulary_fast"]
-    img_processor_cfg = FILES["img_processor"]
+def set_args():        
+    parser = argparse.ArgumentParser(add_help=True)    
+    parser.add_argument("--pretrained", '-pre', choices=[0, 1, 2, 3], help="Choose pre-trained model:" +
+        "\n\t0 - {0}\n\t1 - {1}\n\t2 - {2}\n\t3 - {3}\nDefault: openai/clip-vit-base-patch32".format(*PRE_TRAINED, type=int), default=1)    
         
-    json.dump(CLIPModel.config_class().to_json_string(), open(f"./defaults/{folder}/{model}", 'w'))    
-    json.dump(CLIPTextConfig.from_pretrained(pre_trained).to_json_string(), open(f"./defaults/{folder}/{txt_cfg}", 'w'))
-    json.dump(CLIPVisionConfig.from_pretrained(pre_trained).to_json_string(), open(f"./defaults/{folder}/{vision_cfg}", 'w'))
+    parser.add_argument("--config", "-cfg", help="set configs folder to be loaded", default=False)    
+    parser.add_argument("--resume_training", "-r", help="set OUTPUTS folder to be resumed", default=False)    
+    parser.add_argument("--last", "-l", help="try to resume last experiment", default=False)    
 
-    img_proc = CLIPImageProcessor.from_pretrained(pre_trained)    
-    img_proc_cfg = {
-        "do_resize" : img_proc.do_resize,
-        "size" : img_proc.size,
-        "resample" : img_proc.resample,
-        "do_center_crop" : img_proc.do_center_crop,
-        "crop_size" : img_proc.crop_size,
-        "do_rescale" : img_proc.do_rescale,
-        "rescale_factor" : img_proc.rescale_factor,
-        "do_normalize" : img_proc.do_normalize,
-        "image_mean" : img_proc.image_mean,
-        "image_std" : img_proc.image_std,
-        "do_convert_rgb" : img_proc.do_convert_rgb
-    }
-    json.dump(img_proc_cfg, open(f"./defaults/{folder}/{img_processor_cfg}.json", 'w'))
+    args = parser.parse_args()
+    assert os.path.exists(f"./config/{args.config}/cfg.json"), "you need a configuration file"
+    args.pretrained = VALUES[args.pretrained]    
+    return args
 
-    tok:CLIPTokenizer = CLIPTokenizer.from_pretrained(pre_trained)
-    vocab = tok.get_vocab()
-    json.dump(vocab, open(f"./defaults/{folder}/{vocabulary}", "w"))    
-    tok = {"vocab_file" : f"./defaults/{folder}/{vocabulary}"}
-    json.dump(tok, open(f"./defaults/{folder}/{tokenizer}", 'w'))
+def set_logs_folder(date:datetime.datetime, configs:dict):
+    logs_folder = f".{os.sep}outputs{os.sep}{date.year}-{date.month}-{date.day}:{date.hour}:{date.minute}:{date.second}"
 
-    tok_fast = CLIPTokenizerFast.from_pretrained(pre_trained)
-    json.dump(tok_fast.get_vocab(), open(f"./defaults/{folder}/{vocabulary_fast}", "w"))
-    tokfast_json = {"vocab_file" : f"./defaults/{folder}/{vocabulary_fast}"}
-    json.dump(tokfast_json, open(f"./defaults/{folder}/{tokenizer_fast}", 'w'))
-                
-def process_args(args:dict):    
+    for k, v in configs.items():
+        if v:
+            if not os.path.exists(logs_folder): os.makedirs(logs_folder)
+            with open(f"{logs_folder}{os.sep}{k}.json") as file:
+                file.write(v)
 
-    text_config = {}
-    vision_config = {}
-    token_vocab = {}
-    img_processor = {}
-
-    if args.text_config:
-        text_config = list(json.loads(open(f"./conf/{args.text_config}", 'r').read()).values() )    
-    if args.vis_config:
-        vision_config = list(json.loads(open(f"./conf/{args.vis_config}", 'r').read()).values() )    
-    if args.token_vocab:
-        token_vocab = list(json.loads(open(f"./conf/{args.token_vocab}", 'r').read()).values() )            
-    if args.img_processor:
-        img_processor = list(json.loads(open(f"./conf/{args.img_processor}", 'r').read()).values() )
-
-
-    return (text_config, vision_config, token_vocab, img_processor)
-
-def get_defaults(pretrained, fast=False):
-    folder = PRE_TRAINED[pretrained] 
-
-    cfg = json.load(f"./defaults/{folder}/{FILES['model']}")
-    cfg_text = json.load(f"./defaults/{folder}/{FILES['txt']}")
-    cfg_vision = json.load(f"./defaults/{folder}/{FILES['vision']}")    
-    cfg_token = json.load(f"./defaults/{folder}/{FILES["tokenizer_fast"]}") if fast else json.load(f"./defaults/{folder}/{FILES["tokenizer"]}")
-
+    return logs_folder
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(add_help=True)    
-    set_args(parser)
-    args = parser.parse_args()
-    update_pretrained_configs(args.default if args.default else args.pre_trained)
-    exit()    
-        
+    args = set_args()    
+    path = f"./config/{args.config}"
+    architecture_cfg, img_processor_cfg, tokenizer_cfg = CLIPGenerator.load_configs(path)    
+    config = f"{path}/cfg.json" if os.path.exists(f"{path}/cfg.json") else [False]
 
-    configs = process_args(args)
-    
-    #text_config, vision_config, token_vocab, img_processor
-    configs = [x for x in product(*configs)]
-    print(configs)
-    exit()
-    for config in configs:
-        text_cfg = CLIPTextConfig(config[0])
-        vision_config = CLIPVisionConfig(config[1])
-        tokenizer = CLIPTokenizerFast(config[2]) if args.fast else CLIPTokenizer(config[2])
-        img_processor = CLIPImageProcessor(config[3])
-        clip_config = CLIPConfig(text_cfg, vision_config)
 
-    
-    
+    combinations = product(architecture_cfg, img_processor_cfg, tokenizer_cfg, config)
+    for model_cfg, processor_cfg, tok_cfg, cfg in combinations:
+        date = datetime.datetime.now()
+        save = {"model_cfg" : model_cfg, "processor" : processor_cfg, "tok_cfg" : tok_cfg, "cfg" : cfg}
+        logs_folder = set_logs_folder(date, save)
+        model, processor, tokenizer = CLIPGenerator.load_model(args.pretrained, model_cfg, processor_cfg, tok_cfg)
+        model = model.to("cuda")
+
+        optim = AdamW(model.parameters(), 1e-5)
+        trainer = Trainer(optim, CrossEntropyLoss(), None, logs_folder, total_epochs=10)        
