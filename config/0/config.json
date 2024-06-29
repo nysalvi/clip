@@ -1,21 +1,33 @@
 {
 	"pretrained" : "openai/clip-vit-base-patch32",
-	"total_epochs" : 10,
-	"lr" : 1e-4,
-	"wd" : 2e-5,
+    "seed" : false,
+    "batch_size" : 16,
+    "early_stop" : 5,
+    "epoch" : 0,
+	"total_epochs" : 10,	
+    "save_rate" : 5,   
+    "augmentation" : false,
+    "path" : "./data",
+    "trainset" : {
+        "eval" : "datasets.dataset.TextImagePairSet",
+        "annotations_file" : "data.csv",
+        "augmentation" : false,
+    },
 	"optimizer" : {
-		"name" : "Adam",
-		"lr" : 1e-4,
-		"betas" : [0.9, 0.99]
+		"eval" : "torch.optim.Adam",
+		"lr" : 1e-3,
+		"betas" : [0.9, 0.99],
+        "weight_decay" : 5e-4
 	},
 	"loss_fn" : {
-		"name" : "CrossEntropyLoss",
+		"eval" : "torch.nn.CrossEntropyLoss",
 		"reduction" : "none"
 	},
 	"lr_scheduler" : {
-		"name" : "CosineAnnealingLR",
+		"eval" : "torch.optim.lr_scheduler.CosineAnnealingLR",
 		"T_max" : 3,
 		"verbose" : true
 	},
+    "metric" : "f1_score",    
 	"device" : "cuda:0"		
 }

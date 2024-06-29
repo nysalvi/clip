@@ -4,7 +4,7 @@ from pre_trained import PRE_TRAINED, VALUES, FILES
 from generator.clip_generator import CLIPGenerator
 from torchvision.transforms import v2
 from torch.nn import CrossEntropyLoss
-from trainer import Trainer
+from trainers.clip_trainer import CLIPTrainer
 from torch.optim import AdamW
 from itertools import product
 from pathlib import Path
@@ -56,4 +56,4 @@ if __name__ == "__main__":
         model = model.to("cuda")
 
         optim = AdamW(model.parameters(), 1e-5)
-        trainer = Trainer(optim, CrossEntropyLoss(), None, logs_folder, total_epochs=10)        
+        trainer = CLIPTrainer(optim, CrossEntropyLoss(), None, logs_folder, total_epochs=10)        

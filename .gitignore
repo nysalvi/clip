@@ -22,4 +22,5 @@ norm_aug3.png
 norm_aug4.png
 aug.ipynb
 image.jpg
-.gitignore
+outputs
+defaults
