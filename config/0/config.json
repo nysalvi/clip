@@ -20,8 +20,7 @@
         "weight_decay" : 5e-4
 	},
 	"loss_fn" : {
-		"eval" : "torch.nn.CrossEntropyLoss",
-		"reduction" : "none"
+		"eval" : "torch.nn.CrossEntropyLoss"
 	},
 	"lr_scheduler" : {
 		"eval" : "torch.optim.lr_scheduler.CosineAnnealingLR",

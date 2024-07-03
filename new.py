@@ -7,6 +7,9 @@ import argparse, os
 import datetime
 import torch
 import json
+import sys
+
+#sys.args['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 def set_args():        
     parser = argparse.ArgumentParser(add_help=True)            
@@ -29,11 +32,22 @@ def set_logs_folder(date:datetime.datetime, configs:dict):
                 file.write(v)
     return logs_folder
 
+def check_configs(cfg):
+    keys = cfg.keys()
+    if not "seed" in keys: cfg['seed'] = False
+    if not "epoch" in keys: cfg['epoch'] = 0
+    if not "device" in keys: cfg['device'] = 'cpu'
+    if not "early_stop" in keys: cfg['early_stop'] = 0
+
+    assert "loss_fn" in keys, "Must specify a Loss function"
+    assert "optimizer" in keys, "Must specify optimizer function"
+    assert "path" in keys, "data path must be in config"
+    assert "batch_size" in keys, "Must specify batch size"
 
 if __name__ == "__main__":
     args, path = set_args()
     cfg = json.loads(open(f"{path}{os.sep}config.json", "r").read())    
-
+    check_configs(cfg)
     trainLoader = eval(cfg['dataset'].pop('eval'))(**cfg['dataset'])
 
 
@@ -60,7 +74,12 @@ if __name__ == "__main__":
         "image_processor" : img_processor
         }
     trainer = CLIPTrainer(**trainer_cfg)        
+    
+    pbar = tqdm(range(cfg['epoch'], cfg['total_epochs'], 1))
+    for i in pbar:
+        writer = Writer()
 
+        pbar.update()
     #for i in tqdm(range(cfg['total_epochs'])):    
     print(trainer)
     #optim_name = OPTIMIZERS[optimizer_cfg.pop('eval')]

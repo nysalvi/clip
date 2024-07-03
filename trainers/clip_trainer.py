@@ -19,13 +19,12 @@ class CLIPTrainer:
             self.optimizer.zero_grad()            
             outputs = self.model(X)
 
-            loss_all = self.loss_fn(outputs, y)            
-            loss = torch.mean(loss_all)
+            loss = self.loss_fn(outputs, y)                        
             loss.backward()
 
             self.optimizer.step()            
             
-            y_true+= y; y_score+= outputs; losses+= loss_all
+            y_true+= y; y_score+= outputs; losses+= loss
             y_pred+= (outputs > 0.5) * 1.
         
         return {'loss' : losses, 'y_hat' : y_pred, 'scores' : y_score, 'y' : y_true}
@@ -40,9 +39,9 @@ class CLIPTrainer:
                 X, y = X.to(self.device), y.to(self.device)
 
                 outputs = model(X)
-                loss_all = self.loss_fn(outputs, y)            
+                loss = self.loss_fn(outputs, y)            
 
-                y_true+= y; y_score+= outputs; losses+= loss_all
+                y_true+= y; y_score+= outputs; losses+= loss
                 y_pred+= (outputs > 0.5) * 1.
                 
         return {'loss' : losses, 'y_hat' : y_pred, 'scores' : y_score, 'y' : y_true}                
@@ -57,9 +56,9 @@ class CLIPTrainer:
                 X, y = X.to(self.device), y.to(self.device)
 
                 outputs = model(X)
-                loss_all = self.loss_fn(outputs, y)            
+                loss = self.loss_fn(outputs, y)            
 
-                y_true+= y; y_score+= outputs; losses+= loss_all
+                y_true+= y; y_score+= outputs; losses+= loss
                 y_pred+= (outputs > 0.5) * 1.               
         return {'loss' : losses, 'y_hat' : y_pred, 'scores' : y_score, 'y' : y_true}                
                 
