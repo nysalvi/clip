@@ -1,12 +1,10 @@
-
 from sklearn.metrics import confusion_matrix, mean_squared_error, mean_squared_log_error
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.metrics import f1_score, max_error, log_loss, zero_one_loss
 from torch.utils.tensorboard.writer import SummaryWriter, FileWriter
-#from torch.utils.tensorboard.summary import 
 import pandas as pd
 import torch
-#TF_ENABLE_ONEDNN_OPTS=0
+
 #LR_SCHEDULERS = {
 #    "MultiplicativeLR" : torch.optim.lr_scheduler.MultiplicativeLR,
 #    "LambdaLR" : torch.optim.lr_scheduler.LambdaLR,
@@ -41,17 +39,26 @@ METRICS = [
     max_error,
     zero_one_loss,
     precision_score,
-    recall_score,
-    confusion_matrix
+    recall_score    
 ]
 
 class Writer():
-    def __init__(self, date, path):
+    def __init__(self, model_name, path):        
+        self.model = model_name
         self.writer = SummaryWriter(path)
-    def sklearn(y_true, y_pred, df=None):
-        if not df:
-            df = pd.DataFrame([])
+    def save_metrics(self, dataset, y_true, y_pred):                   
+        values = {}
         for metric in METRICS:
-            df[metric.__name__] = metric(y_true, y_pred)
-        return df
+            name = metric.__name__
+            print(name)
+            value = metric(y_true, y_pred)
+            print(value)
+            values.update({name : value})
+            self.writer.add_scalars(dataset, {
+                f"{self.model_name}/{name}" : value
+            })        
+        return values
     
+    def save_model(model, optimizer, lr_scheduler, i):
+        pd.DataFrame()
+        

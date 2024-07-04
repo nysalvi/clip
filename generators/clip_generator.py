@@ -1,6 +1,7 @@
 from transformers import CLIPConfig, CLIPModel, CLIPImageProcessor, CLIPTokenizerFast
+from models.clip import MyCLIP
 from generators.base_generator import Generator
-from trainers.clip_trainer import CLIPTrainer
+from trainers.trainer import Trainer
 from enum import Enum
 import json
 import os 
@@ -29,25 +30,6 @@ class CLIPGenerator(Generator):
 
         return {'model' : model_json,'img_processor' : processor_json, 'tokenizer' : tokenizer_json}
 
-    #def load_model(pretrained, model_json, img_json, tokenizer_json):            
-    #    if model_json:
-    #        print(model_json)
-    #        clip_cfg = CLIPConfig(**model_json)        
-    #        model = CLIPModel.from_pretrained(pretrained_model_name_or_path=pretrained, config=clip_cfg)
-    #    else:
-    #        model = CLIPModel.from_pretrained(pretrained_model_name_or_path=pretrained)
-    #    if img_json:        
-    #        img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained, **img_json)
-    #    else:
-    #        img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained)
-    #    if tokenizer_json:
-    #        tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_model_name_or_path=pretrained, **tokenizer_json)
-    #    else: 
-    #        tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_model_name_or_path=pretrained)
-    #
-    #    return (model, img_processor, tokenizer)
-
-
     def load_model(configs):            
         pretrained = configs['pretrained']
         model_json = configs['model']
@@ -56,9 +38,9 @@ class CLIPGenerator(Generator):
 
         if model_json:
             clip_cfg = CLIPConfig(model_json)        
-            model = CLIPModel.from_pretrained(pretrained_model_name_or_path=pretrained, config=clip_cfg)
+            model = MyCLIP.from_pretrained(pretrained_model_name_or_path=pretrained, config=clip_cfg)
         else:
-            model = CLIPModel.from_pretrained(pretrained)
+            model = MyCLIP.from_pretrained(pretrained)
         if img_json:        
             img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained, config=img_json)
         else:

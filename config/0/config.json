@@ -1,18 +1,33 @@
 {
+    "name" : "CLIP",
 	"pretrained" : "openai/clip-vit-base-patch32",
     "seed" : false,
     "batch_size" : 16,
     "early_stop" : 5,
     "epoch" : 0,
-	"total_epochs" : 10,	
-    "save_rate" : 5,   
-    "augmentation" : false,
+	"total_epochs" : 10,	    
     "path" : "./data",
-    "trainset" : {
-        "eval" : "datasets.dataset.TextImagePairSet",
-        "annotations_file" : "data.csv",
-        "augmentation" : false,
+    "train" : {
+        "eval" : "_datasets.dataset.TextImagePairSet",
+        "annotations_file" : "./data/train/data.csv",
+        "img_dir" : "./data/train",
+        "transform" : "clip_preprocess",
+        "target_transform" : false
     },
+    "dev" : {
+        "eval" : "_datasets.dataset.TextImagePairSet",
+        "annotations_file" : "./data/train/data.csv",
+        "img_dir" : "./data/train",
+        "transform" : "clip_preprocess",
+        "target_transform" : false
+    },  
+    "test" : {
+        "eval" : "_datasets.dataset.TextImagePairSet",
+        "annotations_file" : "./data/train/data.csv",
+        "img_dir" : "./data/train",
+        "transform" : "clip_preprocess",
+        "target_transform" : false
+    },    
 	"optimizer" : {
 		"eval" : "torch.optim.Adam",
 		"lr" : 1e-3,
