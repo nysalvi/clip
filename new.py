@@ -1,23 +1,14 @@
+from _datasets.dataset import CLIPSet
+from utils import load_loss_fn, load_lr_scheduler, load_optimizer, set_logs_folder, load_dataset
 #from metric import LR_SCHEDULERS, OPTIMIZERS, LOSSES
 from generators.clip_generator import CLIPGenerator
-from augmentations import AUGMENTATIONS
-from _datasets.dataset import TextImagePairSet 
 from trainers.trainer import Trainer
 from metric_writer import Writer
 from tqdm import tqdm
 import argparse, os
-import transformers
-import torchvision
 import _datasets
 import datetime
-import torch
 import json
-
-class ModuleToJsonEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, torch.nn.Module):
-            return obj.__str__()        
-        return super().default(obj)
 
 def set_args():        
     parser = argparse.ArgumentParser(add_help=True)            
@@ -28,21 +19,9 @@ def set_args():
     args = parser.parse_args()    
     path = f".{os.sep}config{os.sep}{args.config}"    
     assert os.path.exists(f"{path}{os.sep}model.json") and os.path.exists(f"{path}{os.sep}config.json"), "There is no model config"
+    assert not args.last, "last run is not implemented yet"
+    assert not args.resume_training, "resume training is not implemented yet"
     return args, path
-
-def set_logs_folder(date:datetime.datetime, configs:dict):
-    logs_folder = f".{os.sep}outputs{os.sep}{date.year}-{date.month}-{date.day};{date.hour}H{date.minute}M{date.second}S"
-
-    for k, v in configs.items():
-        if v:
-            if not os.path.exists(logs_folder): os.makedirs(logs_folder)
-            with open(f"{logs_folder}{os.sep}{k}.json", 'w') as file:
-                if type(v) == dict:
-                    file.write(json.dumps(v, cls=ModuleToJsonEncoder, indent=4).replace('\\n','\n'))
-                else:
-                    file.write(v)
-
-    return logs_folder
 
 def check_configs(cfg):
     keys = cfg.keys()
@@ -63,54 +42,40 @@ def check_configs(cfg):
     assert "total_epochs" in keys, "Must specify number of epochs to train"
     assert "metric" in keys, "Your model must have a function "
 
-def load_dataset_transform(transform):
-    if transform:
-        return AUGMENTATIONS[transform]
-    return False
 
-def load_dataset(nameset, cfg:dict):
-    cfg[nameset]['transform'] = load_dataset_transform(cfg[nameset]['transform'])
-    cfg[nameset]['target_transform'] = load_dataset_transform(cfg[nameset]['target_transform'])
-    return eval(cfg[nameset].pop('eval'))(**cfg[nameset])
-
-if __name__ == "__main__":
-    os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"    
-    os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+if __name__ == "__main__":    
     args, path = set_args()    
-
     cfg = json.loads(open(f"{path}{os.sep}config.json", "r").read())    
+    
     check_configs(cfg)
     
-    trainLoader = load_dataset("train", cfg)
-    devLoader = load_dataset("dev", cfg)
-    testLoader = load_dataset("test", cfg)
-
     model_configs = CLIPGenerator.load_configs(path)
+    
     model_configs['pretrained'] = cfg['pretrained']
-    
-    model, img_processor, tokenizer = CLIPGenerator.load_model(model_configs)    
-    model = model.to(cfg['device'])
-    params = [p for p in model.parameters() if p.requires_grad]    
-
-    scheduler_cfg = cfg['lr_scheduler']
     optimizer_cfg = cfg['optimizer']    
+    scheduler_cfg = cfg['lr_scheduler']
     loss_cfg = cfg['loss_fn']
-
-    optimizer = eval(optimizer_cfg.pop("eval"))(params=params, **optimizer_cfg)    
-    loss = eval(loss_cfg.pop("eval"))(**loss_cfg)
-    lr_scheduler = eval(scheduler_cfg.pop("eval"))(optimizer=optimizer, **scheduler_cfg)
     
-    trainer_cfg = {
-        **cfg,
+    trainLoader = load_dataset("train", {**cfg, **model_configs})
+    devLoader =  load_dataset("dev", {**cfg, **model_configs})
+    testLoader =  load_dataset("test", {**cfg, **model_configs})
+    
+    #model, img_processor, tokenizer = CLIPGenerator.load_model(model_configs)    
+    model = CLIPGenerator.load_model(model_configs).to(cfg['device'])        
+
+    params = [p for p in model.parameters() if p.requires_grad]    
+    optimizer = load_optimizer(optimizer_cfg, params)
+    loss = load_loss_fn(loss_cfg)
+    lr_scheduler = load_lr_scheduler(scheduler_cfg, optimizer)
+    
+    trainer_cfg = {        
         "optimizer" : optimizer, 
         "loss_fn" : loss, 
         "lr_scheduler" : lr_scheduler, 
-        "device" : cfg['device'],
-        "tokenizer" : tokenizer,
-        "image_processor" : img_processor,        
+        "device" : cfg['device']       
     }
 
-    trainer = Trainer(**trainer_cfg)        
+    trainer = Trainer(**trainer_cfg)
     
     pbar = tqdm(range(cfg['epoch'], cfg['total_epochs'], 1))
 
@@ -123,7 +88,8 @@ if __name__ == "__main__":
         train_loss = trainer.train(model, trainLoader)
         dev_loss = trainer.validate(model, devLoader)
         test_loss = trainer.test(model, testLoader)        
-        #pbar.format_dict['rate']
-        #pbar.format_dict['elapsed']
-        pbar.update()
         
+        it_second = pbar.format_dict['rate']
+        time = pbar.format_dict['elapsed']
+        
+        pbar.update()

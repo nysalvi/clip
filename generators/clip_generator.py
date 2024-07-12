@@ -20,33 +20,35 @@ class CLIPGenerator(Generator):
         model_cfg, img_cfg, tokenizer_cfg = CLIPGenerator.check_configs(path)
         
         model_json = json.loads(model_cfg)
+        
         model_json = False if len(model_json) == 0 else model_json
-
+        
         processor_json = json.loads(img_cfg)
         processor_json = False if len(processor_json) == 0 else processor_json
 
         tokenizer_json = json.loads(tokenizer_cfg)
         tokenizer_json = False if len(tokenizer_json) == 0 else tokenizer_json
-
+        
         return {'model' : model_json,'img_processor' : processor_json, 'tokenizer' : tokenizer_json}
 
     def load_model(configs):            
         pretrained = configs['pretrained']
         model_json = configs['model']
-        img_json = configs['img_processor']
-        tokenizer_json = configs['tokenizer']
+        #img_json = configs['img_processor']
+        #tokenizer_json = configs['tokenizer']
 
         if model_json:
             clip_cfg = CLIPConfig(model_json)        
             model = MyCLIP.from_pretrained(pretrained_model_name_or_path=pretrained, config=clip_cfg)
         else:
             model = MyCLIP.from_pretrained(pretrained)
-        if img_json:        
-            img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained, config=img_json)
-        else:
-            img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained)
-        if tokenizer_json:
-            tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_model_name_or_path=pretrained, config=tokenizer_json)
-        else: 
-            tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_model_name_or_path=pretrained)
-        return (model, img_processor, tokenizer)
+        #if img_json:        
+        #    img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained, config=img_json)
+        #else:
+        #    img_processor = CLIPImageProcessor.from_pretrained(pretrained_model_name_or_path=pretrained)
+        #if tokenizer_json:
+        #    tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_model_name_or_path=pretrained, config=tokenizer_json)
+        #else: 
+        #    tokenizer = CLIPTokenizerFast.from_pretrained(pretrained_model_name_or_path=pretrained)
+        #return (model, img_processor, tokenizer)
+        return model

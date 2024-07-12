@@ -44,9 +44,9 @@ METRICS = [
 
 class Writer():
     def __init__(self, model_name, path):        
-        self.model = model_name
+        self.name = model_name
         self.writer = SummaryWriter(path)
-    def save_metrics(self, dataset, y_true, y_pred):                   
+    def load_metrics(self, dataset, y_true, y_pred):                   
         values = {}
         for metric in METRICS:
             name = metric.__name__
@@ -58,7 +58,12 @@ class Writer():
                 f"{self.model_name}/{name}" : value
             })        
         return values
-    
+    def write(self, tags:list, i):
+        tag = ""
+        for t in tags:
+            tag+= f"/{t}"            
+        self.writer.add_scalar(f"{self.name}{tag}", i)
+        
     def save_model(model, optimizer, lr_scheduler, i):
         pd.DataFrame()
         

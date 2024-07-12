@@ -2,27 +2,27 @@
     "name" : "CLIP",
 	"pretrained" : "openai/clip-vit-base-patch32",
     "seed" : false,
-    "batch_size" : 16,
+    "batch_size" : 2,
     "early_stop" : 5,
     "epoch" : 0,
 	"total_epochs" : 10,	    
     "path" : "./data",
     "train" : {
-        "eval" : "_datasets.dataset.TextImagePairSet",
+        "eval" : "_datasets.dataset.CLIPSet",
         "annotations_file" : "./data/train/data.csv",
         "img_dir" : "./data/train",
         "transform" : "clip_preprocess",
         "target_transform" : false
     },
     "dev" : {
-        "eval" : "_datasets.dataset.TextImagePairSet",
+        "eval" : "_datasets.dataset.CLIPSet",
         "annotations_file" : "./data/train/data.csv",
         "img_dir" : "./data/train",
         "transform" : "clip_preprocess",
         "target_transform" : false
     },  
     "test" : {
-        "eval" : "_datasets.dataset.TextImagePairSet",
+        "eval" : "_datasets.dataset.CLIPSet",
         "annotations_file" : "./data/train/data.csv",
         "img_dir" : "./data/train",
         "transform" : "clip_preprocess",
@@ -35,7 +35,7 @@
         "weight_decay" : 5e-4
 	},
 	"loss_fn" : {
-		"eval" : "torch.nn.CrossEntropyLoss"
+		"eval" : "torch.nn.BCEWithLogitsLoss"
 	},
 	"lr_scheduler" : {
 		"eval" : "torch.optim.lr_scheduler.CosineAnnealingLR",
@@ -43,5 +43,5 @@
 		"verbose" : true
 	},
     "metric" : "f1_score",    
-	"device" : "cuda:0"		
+	"device" : "cpu"		
 }
